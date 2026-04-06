@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: OpenClaw Memory — IAM user and execution role for AgentCore Memory
+
+Resources:
+  OpenClawUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: openclaw-memory-user
+      Policies:
+        - PolicyName: AgentCoreMemoryAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock-agentcore:*
+                  - bedrock-agentcore-control:*
+                Resource: '*'
+
+  OpenClawAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref OpenClawUser
+
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: openclaw-agentcore-memory-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock-agentcore.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: BedrockInvoke
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource: '*'
+
+Outputs:
+  AccessKeyId:
+    Description: IAM access key for openclaw-memory-user
+    Value: !Ref OpenClawAccessKey
+
+  SecretAccessKey:
+    Description: IAM secret key (retrieve from console or use GetSecretValue)
+    Value: !GetAtt OpenClawAccessKey.SecretAccessKey
+
+  ExecutionRoleArn:
+    Description: Execution role ARN for AgentCore Memory custom strategies
+    Value: !GetAtt ExecutionRole.Arn

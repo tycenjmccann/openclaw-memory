@@ -1,0 +1,47 @@
+{
+  "memory_name": "OpenClawMemory",
+  "region": "us-west-2",
+  "actor_id": "user",
+  "event_expiry_days": 365,
+  "session_prefix": "telegram",
+  "default_turns": 30,
+  "skip_patterns": ["^HEARTBEAT_OK$", "^NO_REPLY$", "^Read HEARTBEAT"],
+  "min_message_length": 1,
+  "max_message_length": 2000,
+  "strategies": {
+    "facts": {
+      "type": "custom_semantic",
+      "name": "Facts",
+      "description": "Extracts factual information from conversations",
+      "namespace": "/{assistant}/{actorId}/facts/",
+      "extraction_prompt": "Extract ALL factual information from this conversation, including: technical details, project information, people and roles, dates and timelines, configuration details, and lessons learned. Extract every discrete fact as a separate record.",
+      "consolidation_prompt": "When consolidating: merge duplicates keeping the most specific version, preserve dates and identifiers exactly, group related facts without over-summarizing.",
+      "model": "us.anthropic.claude-sonnet-4-20250514-v1:0"
+    },
+    "preferences": {
+      "type": "user_preference",
+      "name": "Preferences",
+      "description": "Captures user work style, communication patterns, and preferences",
+      "namespace": "/{assistant}/{actorId}/preferences/"
+    },
+    "decisions": {
+      "type": "semantic",
+      "name": "Decisions",
+      "description": "Tracks decisions made and their reasoning",
+      "namespace": "/{assistant}/{actorId}/decisions/"
+    },
+    "summaries": {
+      "type": "summary",
+      "name": "Summaries",
+      "description": "Creates session overviews",
+      "namespace": "/{assistant}/{actorId}/summaries/{sessionId}/"
+    },
+    "episodes": {
+      "type": "episodic",
+      "name": "Episodes",
+      "description": "Captures discrete events and generates cross-session reflections",
+      "namespace": "/{assistant}/{actorId}/episodes/",
+      "reflection_namespace": "/{assistant}/{actorId}/"
+    }
+  }
+}
