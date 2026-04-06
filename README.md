@@ -7,12 +7,16 @@ Persistent AI memory for [OpenClaw](https://github.com/openclaw) using AWS Agent
 ```bash
 git clone https://github.com/openclaw/openclaw-memory.git ~/.openclaw/skills/openclaw-memory
 cd ~/.openclaw/skills/openclaw-memory
-python3 setup.py          # creates memory resource, installs SDK, hooks
-# restart your gateway
-openclaw gateway restart
+python3 setup.py          # creates memory resource, installs SDK, starts tailer
 ```
 
 That's it. Every conversation is now automatically logged and extracted.
+
+## How It Works
+
+A session tailer runs as a systemd user service, watching your OpenClaw session `.jsonl` files in real-time. Each conversation turn is synced to AgentCore Memory, which runs extraction strategies in the background to pull out facts, preferences, decisions, summaries, and episodes.
+
+> **Note on hooks:** OpenClaw's `message:sent` and `message:received` hook events are listed as "Future Events" and are not yet implemented. Once they ship, we'll switch to a hook-based approach for tighter integration. The session tailer is the reliable method for now.
 
 ## Beginner Guide
 
@@ -26,7 +30,7 @@ This walks you through:
 1. Creating an AWS account (free tier works)
 2. Setting up credentials
 3. Creating the memory resource
-4. Installing the hook
+4. Installing the session tailer service
 
 Or deploy the CloudFormation stack for one-click IAM setup:
 
@@ -86,6 +90,14 @@ python3 scripts/seed_memory.py --file MEMORY.md
 python3 setup.py --check
 ```
 
+### Tailer Service Management
+
+```bash
+systemctl --user status memory-tailer     # check status
+systemctl --user restart memory-tailer    # restart
+journalctl --user -u memory-tailer -f     # follow logs
+```
+
 ## Customization
 
 Edit `config.json` to:
@@ -122,10 +134,9 @@ openclaw-memory/
 ├── SKILL.md                    # Skill definition
 ├── config.json                 # Strategy configuration
 ├── setup.py                    # One-command setup
-├── hooks/memory-sync/
-│   ├── HOOK.md                 # Hook definition
-│   └── handler.ts              # Buffers + logs turns
 ├── scripts/
+│   ├── session_tailer.py       # Watches sessions, syncs to memory (systemd service)
+│   ├── memory_integration.py   # Python API for memory operations
 │   ├── log_turn.py             # Log a single turn
 │   ├── get_context.py          # Retrieve context for session
 │   ├── inspect_memory.py       # Browse memory records

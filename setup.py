@@ -22,8 +22,8 @@ SKILL_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(SKILL_DIR, "config.json")
 MEMORY_ID_FILE = os.path.join(SKILL_DIR, ".memory-id")
 LIB_DIR = os.path.expanduser("~/.openclaw/lib/python")
-HOOK_SRC = os.path.join(SKILL_DIR, "hooks", "memory-sync")
-HOOK_DST = os.path.expanduser("~/.openclaw/hooks/openclaw-memory-sync")
+TAILER_SCRIPT = os.path.join(SKILL_DIR, "scripts", "session_tailer.py")
+SYSTEMD_DIR = os.path.expanduser("~/.config/systemd/user")
 
 
 def load_config():
@@ -241,29 +241,32 @@ def find_or_create_execution_role(region):
         return None
 
 
-def install_hook():
-    """Install the memory sync hook."""
-    if os.path.exists(HOOK_DST):
-        log.info("✅ Hook already installed at %s", HOOK_DST)
-        return True
+def install_tailer():
+    """Install the session tailer as a systemd user service."""
+    os.makedirs(SYSTEMD_DIR, exist_ok=True)
+    service_path = os.path.join(SYSTEMD_DIR, "memory-tailer.service")
 
-    log.info("🔗 Installing memory sync hook...")
-    os.makedirs(HOOK_DST, exist_ok=True)
+    service_content = f"""[Unit]
+Description=AgentCore Memory Session Tailer
+After=openclaw-gateway.service
 
-    for fname in os.listdir(HOOK_SRC):
-        src = os.path.join(HOOK_SRC, fname)
-        dst = os.path.join(HOOK_DST, fname)
-        if os.path.isfile(src):
-            with open(src) as f:
-                content = f.read()
-            # Replace placeholder paths with actual paths
-            content = content.replace("{{SKILL_DIR}}", SKILL_DIR)
-            content = content.replace("{{LIB_DIR}}", LIB_DIR)
-            with open(dst, "w") as f:
-                f.write(content)
+[Service]
+ExecStart={sys.executable} {TAILER_SCRIPT}
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
 
-    log.info("✅ Hook installed. Restart gateway to activate: openclaw gateway restart")
-    return True
+[Install]
+WantedBy=default.target
+"""
+    with open(service_path, "w") as f:
+        f.write(service_content)
+
+    subprocess.run(["systemctl", "--user", "daemon-reload"], capture_output=True)
+    subprocess.run(["systemctl", "--user", "enable", "memory-tailer"], capture_output=True)
+    subprocess.run(["systemctl", "--user", "start", "memory-tailer"], capture_output=True)
+
+    log.info("✅ Session tailer installed and started as systemd service")
 
 
 def check_status():
@@ -290,11 +293,15 @@ def check_status():
         log.info("❌ Memory resource not created")
         return False
 
-    # Hook
-    if os.path.exists(HOOK_DST):
-        log.info("✅ Memory sync hook installed")
+    # Tailer service
+    result = subprocess.run(
+        ["systemctl", "--user", "is-active", "memory-tailer"],
+        capture_output=True, text=True,
+    )
+    if result.stdout.strip() == "active":
+        log.info("✅ Session tailer running")
     else:
-        log.info("❌ Memory sync hook not installed")
+        log.info("❌ Session tailer not running")
         return False
 
     log.info("\n✅ OpenClaw Memory is fully configured!")
@@ -351,10 +358,10 @@ Once configured, run this setup again.
     if not memory_id:
         return False
 
-    # Step 4: Hook
-    log.info("\nStep 4: Installing Hook")
+    # Step 4: Tailer
+    log.info("\nStep 4: Installing Session Tailer")
     log.info("─" * 40)
-    install_hook()
+    install_tailer()
 
     log.info("""
 ╔══════════════════════════════════════════════════╗
@@ -390,8 +397,8 @@ def main():
         if not check_sdk_installed():
             install_sdk()
         create_memory_resource(config)
-        install_hook()
-        log.info("\n✅ Done! Restart gateway: openclaw gateway restart")
+        install_tailer()
+        log.info("\n✅ Done! Session tailer is running — memory sync is active.")
 
 
 if __name__ == "__main__":

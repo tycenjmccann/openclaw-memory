@@ -19,9 +19,11 @@ Your assistant has persistent memory powered by AWS AgentCore Memory. Every conv
 
 ## How It Works
 
-- **Automatic**: Every conversation turn is logged via a hook. No manual action needed.
+- **Automatic**: A session tailer watches your session `.jsonl` files and syncs every turn to AgentCore Memory in real-time. No manual action needed.
 - **Extraction**: AgentCore runs 5 strategies in the background to extract facts, preferences, decisions, summaries, and episodes.
 - **Retrieval**: At session start, run `get_context.py` to hydrate recent turns + relevant memories.
+
+> **Note:** Once OpenClaw ships `message:sent`/`message:received` hook events (currently listed as "Future Events"), we'll switch to a hook-based approach. The session tailer is the reliable method for now.
 
 ## Session Startup
 
@@ -58,7 +60,7 @@ If memory isn't set up yet, run:
 python3 ~/.openclaw/skills/openclaw-memory/setup.py
 ```
 
-This creates the AgentCore Memory resource and configures the hook. Requires AWS credentials with AgentCore permissions.
+This creates the AgentCore Memory resource and starts the session tailer service. Requires AWS credentials with AgentCore permissions.
 
 ## Customization
 
